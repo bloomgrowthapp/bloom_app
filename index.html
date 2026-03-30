@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bloom 2.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --soil: #3b2a1a;
+    --bark: #5c3d2e;
+    --moss: #4a5c3a;
+    --sage: #7a9168;
+    --fern: #a8bc94;
+    --cream: #f5f0e8;
+    --parchment: #ede6d6;
+    --wheat: #d4c5a9;
+    --terracotta: #c17a5a;
+    --clay: #a0614a;
+    --amber: #d4903a;
+    --sun: #f0c060;
+    --mist: rgba(245,240,232,0.85);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--soil);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* ── SCREEN SYSTEM ── */
+  .screen { display: none; min-height: 100vh; animation: fadeIn 0.5s ease; }
+  .screen.active { display: flex; flex-direction: column; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── ONBOARDING / SPLASH ── */
+  #splash {
+    background: linear-gradient(160deg, #2d1f12 0%, #3b2a1a 40%, #4a5c3a 100%);
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #splash::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -80px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(168,188,148,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .splash-leaf {
+    position: absolute;
+    opacity: 0.08;
+    font-size: 120px;
+  }
+  .splash-leaf:nth-child(1) { top: -20px; left: -30px; transform: rotate(-30deg); }
+  .splash-leaf:nth-child(2) { bottom: 40px; right: -20px; transform: rotate(40deg); font-size: 90px; }
+  .splash-leaf:nth-child(3) { top: 40%; right: 10px; transform: rotate(15deg); font-size: 60px; }
+
+  .splash-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px;
+    color: var(--cream);
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 6px;
+    position: relative;
+  }
+
+  .splash-tagline {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    color: var(--fern);
+    font-size: 16px;
+    margin-bottom: 48px;
+  }
+
+  .plant-hero {
+    font-size: 100px;
+    margin-bottom: 40px;
+    display: block;
+    animation: sway 4s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+  @keyframes sway {
+    0%,100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+
+  .btn-primary {
+    background: var(--terracotta);
+    color: var(--cream);
+    border: none;
+    padding: 16px 40px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+  .btn-primary:hover { background: var(--clay); transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--wheat);
+    border: 1.5px solid rgba(212,197,169,0.4);
+    padding: 12px 32px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 12px;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--wheat); }
+
+  /* ── HOME / DASHBOARD ── */
+  #home {
+    background: var(--cream);
+    padding-bottom: 100px;
+  }
+
+  .home-header {
+    background: linear-gradient(160deg, #2d1f12, #3b2a1a);
+    padding: 48px 24px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .home-header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 40px;
+    background: var(--cream);
+    border-radius: 40px 40px 0 0;
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .logo-sm {
+    font-family: 'Playfair Display', serif;
+    color: var(--cream);
+    font-size: 24px;
+  }
+
+  .avatar-btn {
+    width: 40px; height: 40px;
+    background: var(--terracotta);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .greeting {
+    font-family: 'Playfair Display', serif;
+    color: var(--cream);
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+
+  .date-str {
+    color: var(--fern);
+    font-size: 13px;
+    font-family: 'Lora', serif;
+    font-style: italic;
+  }
+
+  .home-body { padding: 0 20px; }
+
+  /* Plant card */
+  .plant-card {
+    background: linear-gradient(135deg, #2d1f12 0%, #4a5c3a 100%);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .plant-card:hover { transform: translateY(-2px); }
+
+  .plant-card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(168,188,148,0.2) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .plant-emoji { font-size: 64px; animation: sway 5s ease-in-out infinite; transform-origin: bottom center; }
+
+  .plant-info { flex: 1; }
+  .plant-name { font-family: 'Playfair Display', serif; color: var(--cream); font-size: 18px; }
+  .plant-level { color: var(--fern); font-size: 12px; margin-bottom: 10px; }
+
+  .growth-bar-wrap { background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; overflow: hidden; }
+  .growth-bar { background: linear-gradient(90deg, var(--sage), var(--fern)); height: 100%; border-radius: 10px; transition: width 1s ease; }
+
+  .growth-label { color: var(--wheat); font-size: 11px; margin-top: 6px; }
+
+  /* Mode selector */
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--soil);
+    margin-bottom: 16px;
+  }
+
+  .modes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .mode-card {
+    border-radius: 20px;
+    padding: 20px 16px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+  .mode-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(59,42,26,0.15); }
+  .mode-card.full { grid-column: 1 / -1; }
+
+  .mode-transition { background: linear-gradient(135deg, #c17a5a, #a0614a); }
+  .mode-body { background: linear-gradient(135deg, #4a5c3a, #7a9168); }
+  .mode-accountability { background: linear-gradient(135deg, #d4903a, #c17a5a); }
+
+  .mode-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+  .mode-label { color: rgba(255,255,255,0.7); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .mode-name { color: #fff; font-family: 'Playfair Display', serif; font-size: 15px; margin-top: 2px; }
+
+  /* Quick check-in */
+  .checkin-card {
+    background: var(--parchment);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 24px;
+    border: 1px solid var(--wheat);
+  }
+
+  .checkin-title { font-family: 'Lora', serif; font-style: italic; color: var(--bark); font-size: 15px; margin-bottom: 14px; }
+
+  .mood-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .mood-btn {
+    flex: 1;
+    background: white;
+    border: 1.5px solid var(--wheat);
+    border-radius: 12px;
+    padding: 10px 4px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 20px;
+    transition: all 0.2s;
+  }
+  .mood-btn.selected, .mood-btn:hover {
+    border-color: var(--terracotta);
+    background: rgba(193,122,90,0.08);
+    transform: scale(1.08);
+  }
+  .mood-label { font-size: 9px; color: var(--bark); margin-top: 2px; display: block; }
+
+  .journal-input {
+    width: 100%;
+    background: white;
+    border: 1.5px solid var(--wheat);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-family: 'Lora', serif;
+    font-size: 14px;
+    color: var(--soil);
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    min-height: 72px;
+  }
+  .journal-input:focus { border-color: var(--sage); }
+  .journal-input::placeholder { color: var(--wheat); font-style: italic; }
+
+  .save-btn {
+    background: var(--moss);
+    color: var(--cream);
+    border: none;
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s;
+    float: right;
+  }
+  .save-btn:hover { background: var(--sage); }
+
+  /* Nourishment strip */
+  .nourish-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: none;
+  }
+  .nourish-scroll::-webkit-scrollbar { display: none; }
+
+  .nourish-card {
+    flex: 0 0 160px;
+    background: var(--parchment);
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid var(--wheat);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .nourish-card:hover { transform: translateY(-2px); }
+  .nourish-icon { font-size: 24px; margin-bottom: 8px; display: block; }
+  .nourish-tag { font-size: 10px; color: var(--terracotta); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .nourish-title { font-family: 'Lora', serif; font-size: 13px; color: var(--soil); line-height: 1.3; }
+
+  /* ── MODE SCREENS ── */
+  .mode-screen {
+    padding-bottom: 100px;
+  }
+
+  .mode-header {
+    padding: 48px 24px 32px;
+    position: relative;
+  }
+
+  .back-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+    transition: background 0.2s;
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.25); }
+
+  .mode-header-title { font-family: 'Playfair Display', serif; font-size: 30px; color: #fff; line-height: 1.2; }
+  .mode-header-sub { color: rgba(255,255,255,0.65); font-size: 14px; font-family: 'Lora', serif; font-style: italic; margin-top: 6px; }
+
+  .mode-body-content { padding: 24px 20px; }
+
+  .card {
+    background: var(--parchment);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid var(--wheat);
+  }
+
+  .card-title { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--soil); margin-bottom: 12px; }
+
+  /* Transition mode */
+  #transition-header { background: linear-gradient(160deg, #a0614a, #c17a5a); }
+
+  .timeline-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 0; border-bottom: 1px solid var(--wheat);
+  }
+  .timeline-item:last-child { border-bottom: none; }
+
+  .timeline-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--terracotta);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; flex-shrink: 0; margin-top: 2px;
+  }
+  .timeline-dot.done { background: var(--sage); }
+  .timeline-content { flex: 1; }
+  .timeline-title { font-size: 14px; font-weight: 500; color: var(--soil); }
+  .timeline-desc { font-size: 12px; color: var(--bark); margin-top: 3px; font-family: 'Lora', serif; font-style: italic; }
+
+  .affirmation-box {
+    background: linear-gradient(135deg, rgba(193,122,90,0.12), rgba(160,97,74,0.08));
+    border-radius: 16px;
+    padding: 20px;
+    border-left: 3px solid var(--terracotta);
+    margin-bottom: 16px;
+  }
+  .affirmation-text { font-family: 'Lora', serif; font-style: italic; font-size: 16px; color: var(--bark); line-height: 1.5; }
+  .affirmation-author { font-size: 11px; color: var(--terracotta); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.8px; }
+
+  /* Body Awareness mode */
+  #body-header { background: linear-gradient(160deg, #2d4a28, #4a5c3a); }
+
+  .body-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .body-check-item {
+    background: white;
+    border-radius: 14px;
+    padding: 14px;
+    border: 1.5px solid var(--wheat);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .body-check-item.active { border-color: var(--sage); background: rgba(74,92,58,0.06); }
+  .body-check-item:hover { transform: scale(1.03); }
+  .body-check-emoji { font-size: 28px; display: block; margin-bottom: 6px; }
+  .body-check-label { font-size: 12px; color: var(--soil); font-weight: 500; }
+  .body-check-score { font-size: 10px; color: var(--sage); margin-top: 2px; }
+
+  .slider-wrap { margin-bottom: 16px; }
+  .slider-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--bark); margin-bottom: 8px; }
+  input[type=range] {
+    width: 100%; accent-color: var(--sage);
+    height: 4px; cursor: pointer;
+  }
+
+  /* Gentle Accountability mode */
+  #accountability-header { background: linear-gradient(160deg, #8a5a20, #d4903a); }
+
+  .goal-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 0; border-bottom: 1px solid var(--wheat);
+    cursor: pointer;
+  }
+  .goal-item:last-child { border-bottom: none; }
+
+  .goal-checkbox {
+    width: 24px; height: 24px;
+    border: 2px solid var(--wheat);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.2s;
+    font-size: 13px;
+  }
+  .goal-checkbox.checked { background: var(--amber); border-color: var(--amber); }
+
+  .goal-content { flex: 1; }
+  .goal-title { font-size: 14px; color: var(--soil); font-weight: 500; }
+  .goal-streak { font-size: 11px; color: var(--terracotta); margin-top: 2px; }
+
+  .goal-category {
+    font-size: 10px; background: var(--parchment);
+    border: 1px solid var(--wheat);
+    border-radius: 10px; padding: 3px 8px; color: var(--bark);
+  }
+
+  .streak-banner {
+    background: linear-gradient(135deg, #d4903a, #c17a5a);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+  .streak-num { font-family: 'Playfair Display', serif; font-size: 36px; line-height: 1; }
+  .streak-text { font-size: 13px; opacity: 0.85; font-family: 'Lora', serif; font-style: italic; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(245,240,232,0.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--wheat);
+    display: flex;
+    padding: 10px 0 20px;
+    z-index: 100;
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    border: none; background: none;
+    transition: all 0.2s;
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .nav-item.active .nav-icon { transform: scale(1.15); }
+  .nav-icon { font-size: 22px; transition: transform 0.2s; }
+  .nav-label { font-size: 10px; color: var(--bark); font-weight: 500; transition: color 0.2s; }
+  .nav-item.active .nav-label { color: var(--terracotta); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--soil);
+    color: var(--cream);
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Nourishment screen */
+  #nourish { background: var(--cream); padding-bottom: 100px; }
+  .nourish-header { background: linear-gradient(160deg, #3b2a1a, #4a5c3a); padding: 48px 24px 32px; }
+  .nourish-full-card {
+    background: var(--parchment);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 0 20px 16px;
+    border: 1px solid var(--wheat);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .nourish-full-card:hover { transform: translateY(-2px); }
+  .nourish-full-top { display: flex; gap: 14px; align-items: flex-start; }
+  .nourish-big-icon { font-size: 36px; }
+  .nourish-meta { flex: 1; }
+  .nourish-meta-tag { font-size: 10px; color: var(--terracotta); text-transform: uppercase; letter-spacing: 0.8px; }
+  .nourish-meta-title { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--soil); margin-top: 2px; line-height: 1.3; }
+  .nourish-meta-time { font-size: 11px; color: var(--bark); margin-top: 4px; }
+  .nourish-preview { font-family: 'Lora', serif; font-size: 13px; color: var(--bark); line-height: 1.5; margin-top: 10px; font-style: italic; }
+
+  /* Responsive max-width */
+  .screen { max-width: 440px; margin: 0 auto; }
+  .bottom-nav { max-width: 440px; left: 50%; transform: translateX(-50%); }
+  .toast { max-width: 320px; }
+
+  /* ── WATERING CELEBRATION ── */
+  #celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  #celebration-overlay.active {
+    display: flex;
+    pointer-events: all;
+  }
+
+  .celebration-backdrop {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(74,92,58,0.92) 0%, rgba(45,31,18,0.97) 100%);
+    animation: backdropIn 0.4s ease;
+  }
+  @keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .celebration-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 40px 32px;
+    animation: celebrationPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes celebrationPop {
+    from { opacity: 0; transform: scale(0.7) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .plant-celebration {
+    font-size: 90px;
+    display: block;
+    margin-bottom: 8px;
+    animation: plantBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+  }
+  @keyframes plantBounce {
+    from { transform: scale(0.5) rotate(-10deg); }
+    to { transform: scale(1) rotate(0deg); }
+  }
+
+  .water-drops-wrap {
+    position: relative;
+    height: 60px;
+    margin-bottom: 16px;
+  }
+
+  .water-drop {
+    position: absolute;
+    font-size: 22px;
+    animation: dropFall 1.2s ease-in-out infinite;
+    opacity: 0;
+  }
+  @keyframes dropFall {
+    0% { opacity: 0; transform: translateY(-20px) scale(0.6); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(50px) scale(1.1); }
+  }
+
+  .celebration-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: var(--cream);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .celebration-sub {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    color: var(--fern);
+    font-size: 15px;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .growth-celebration-bar {
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    height: 10px;
+    width: 220px;
+    margin: 0 auto 24px;
+    overflow: hidden;
+  }
+  .growth-celebration-fill {
+    background: linear-gradient(90deg, var(--sage), var(--fern), var(--sun));
+    height: 100%;
+    border-radius: 20px;
+    width: 0%;
+    transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.5s;
+  }
+
+  .celebration-pts {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--fern);
+    margin-bottom: 28px;
+  }
+
+  .celebration-close {
+    background: var(--terracotta);
+    color: var(--cream);
+    border: none;
+    padding: 14px 40px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .celebration-close:hover { background: var(--clay); transform: scale(1.04); }
+
+  /* Confetti particles */
+  .confetti-particle {
+    position: fixed;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 2001;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg) scale(0.5); }
+  }
+
+  /* Plant watering ripple on card */
+  @keyframes waterRipple {
+    0% { box-shadow: 0 0 0 0 rgba(122,145,104,0.6); }
+    70% { box-shadow: 0 0 0 20px rgba(122,145,104,0); }
+    100% { box-shadow: 0 0 0 0 rgba(122,145,104,0); }
+  }
+  .plant-card.watered {
+    animation: waterRipple 1s ease-out 3;
+  }
+
+  /* Mood logged state */
+  .checkin-card.logged {
+    border-color: var(--sage);
+    background: linear-gradient(135deg, rgba(74,92,58,0.06), rgba(168,188,148,0.08));
+  }
+  /* ── PROFILE SCREEN ── */
+  #profile { background: var(--cream); padding-bottom: 100px; }
+
+  .profile-header {
+    background: linear-gradient(160deg, #2d1f12, #3b2a1a);
+    padding: 48px 24px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 36px;
+    background: var(--cream);
+    border-radius: 36px 36px 0 0;
+  }
+  .profile-header::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(168,188,148,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .profile-avatar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 6px;
+    position: relative;
+  }
+
+  .profile-avatar {
+    width: 68px; height: 68px;
+    background: linear-gradient(135deg, var(--terracotta), var(--clay));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px;
+    border: 3px solid rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+
+  .profile-name-wrap { flex: 1; }
+  .profile-display-name {
+    font-family: 'Playfair Display', serif;
+    color: var(--cream);
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  .profile-member-since {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    color: var(--fern);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .profile-body { padding: 8px 20px 0; }
+
+  .profile-section {
+    margin-bottom: 20px;
+  }
+
+  .profile-section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--terracotta);
+    font-weight: 600;
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  .profile-card {
+    background: var(--parchment);
+    border-radius: 20px;
+    border: 1px solid var(--wheat);
+    overflow: hidden;
+  }
+
+  .profile-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--wheat);
+    transition: background 0.15s;
+    cursor: default;
+  }
+  .profile-row:last-child { border-bottom: none; }
+  .profile-row.tappable { cursor: pointer; }
+  .profile-row.tappable:hover { background: rgba(193,122,90,0.05); }
+
+  .profile-row-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+  .icon-soil { background: rgba(59,42,26,0.1); }
+  .icon-terracotta { background: rgba(193,122,90,0.12); }
+  .icon-sage { background: rgba(74,92,58,0.1); }
+  .icon-amber { background: rgba(212,144,58,0.1); }
+
+  .profile-row-content { flex: 1; min-width: 0; }
+  .profile-row-label { font-size: 11px; color: var(--bark); margin-bottom: 2px; }
+  .profile-row-value { font-size: 14px; color: var(--soil); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .profile-row-sub { font-size: 11px; color: var(--sage); margin-top: 1px; font-family: 'Lora', serif; font-style: italic; }
+
+  .profile-row-action {
+    color: var(--wheat);
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* Toggle switch */
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+  .toggle {
+    position: relative;
+    width: 44px; height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--wheat);
+    border-radius: 24px;
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.25s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--sage); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  .subscription-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, var(--amber), var(--terracotta));
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sign-out-btn {
+    width: 100%;
+    background: transparent;
+    border: 1.5px solid rgba(193,122,90,0.35);
+    color: var(--terracotta);
+    padding: 14px;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .sign-out-btn:hover { background: rgba(193,122,90,0.06); border-color: var(--terracotta); }
+
+  .plant-type-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(74,92,58,0.1);
+    border: 1px solid rgba(122,145,104,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    color: var(--moss);
+  }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- WATERING CELEBRATION OVERLAY -->
+<div id="celebration-overlay">
+  <div class="celebration-backdrop" onclick="closeCelebration()"></div>
+  <div class="celebration-content">
+    <span class="plant-celebration" id="celeb-plant">🌿</span>
+    <div class="water-drops-wrap" id="water-drops"></div>
+    <div class="celebration-title" id="celeb-title">Sage is watered! 💧</div>
+    <div class="celebration-sub" id="celeb-sub">You showed up for yourself.<br>Your plant felt it.</div>
+    <div class="growth-celebration-bar">
+      <div class="growth-celebration-fill" id="celeb-bar"></div>
+    </div>
+    <div class="celebration-pts" id="celeb-pts">+5 growth points · 73 / 100</div>
+    <button class="celebration-close" onclick="closeCelebration()">Keep growing 🌱</button>
+  </div>
+</div>
+
+<!-- ══════════════ SPLASH ══════════════ -->
+<div class="screen active" id="splash">
+  <span class="splash-leaf">🍃</span>
+  <span class="splash-leaf">🌿</span>
+  <span class="splash-leaf">✦</span>
+
+  <span class="plant-hero">🌱</span>
+  <div class="splash-logo">Bloom</div>
+  <div class="splash-tagline">grow gently, one day at a time</div>
+
+  <button class="btn-primary" onclick="goTo('home')">Begin growing</button>
+  <button class="btn-secondary" onclick="goTo('home')">I already have an account</button>
+</div>
+
+<!-- ══════════════ HOME ══════════════ -->
+<div class="screen" id="home">
+  <div class="home-header">
+    <div class="header-top">
+      <div class="logo-sm">Bloom</div>
+      <button class="avatar-btn" onclick="goTo('profile')" title="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="greeting">Good morning, Niki 🌤</div>
+    <div class="date-str">Sunday, March 29 · Day 14 of your journey</div>
+  </div>
+
+  <div class="home-body" style="margin-top: -20px;">
+
+    <!-- Plant companion -->
+    <div class="plant-card" onclick="showToast('Your plant is thriving! 🌿')">
+      <span class="plant-emoji">🌿</span>
+      <div class="plant-info">
+        <div class="plant-name">Sage</div>
+        <div class="plant-level">Level 3 · Flourishing</div>
+        <div class="growth-bar-wrap"><div class="growth-bar" style="width: 68%;"></div></div>
+        <div class="growth-label">68 / 100 growth points</div>
+      </div>
+    </div>
+
+    <!-- Quick mood check-in -->
+    <div class="checkin-card">
+      <div class="checkin-title">How are you feeling right now?</div>
+      <div class="mood-row">
+        <button class="mood-btn" onclick="selectMood(this)">😔<span class="mood-label">Low</span></button>
+        <button class="mood-btn" onclick="selectMood(this)">😐<span class="mood-label">Okay</span></button>
+        <button class="mood-btn" onclick="selectMood(this)">🙂<span class="mood-label">Good</span></button>
+        <button class="mood-btn" onclick="selectMood(this)">😊<span class="mood-label">Great</span></button>
+        <button class="mood-btn" onclick="selectMood(this)">🌟<span class="mood-label">Glowing</span></button>
+      </div>
+      <textarea class="journal-input" placeholder="What's on your heart today? (optional)"></textarea>
+      <button class="save-btn" onclick="saveCheckin()">Save ✓</button>
+      <div style="clear:both"></div>
+    </div>
+
+    <!-- Mode cards -->
+    <div class="section-title">Your modes</div>
+    <div class="modes-grid">
+      <div class="mode-card mode-transition" onclick="goTo('transition')">
+        <span class="mode-icon">🌅</span>
+        <div class="mode-label">Mode</div>
+        <div class="mode-name">Transition</div>
+      </div>
+      <div class="mode-card mode-body" onclick="goTo('bodyaware')">
+        <span class="mode-icon">🌿</span>
+        <div class="mode-label">Mode</div>
+        <div class="mode-name">Body Awareness</div>
+      </div>
+      <div class="mode-card mode-accountability full" onclick="goTo('accountability')">
+        <span class="mode-icon">🌻</span>
+        <div class="mode-label">Mode</div>
+        <div class="mode-name">Gentle Accountability</div>
+      </div>
+    </div>
+
+    <!-- Daily Nourishment strip -->
+    <div class="section-title">Daily Nourishment</div>
+    <div class="nourish-scroll">
+      <div class="nourish-card" onclick="goTo('nourish')">
+        <span class="nourish-icon">🧘‍♀️</span>
+        <div class="nourish-tag">Breathwork</div>
+        <div class="nourish-title">4-7-8 Breathing for Calm</div>
+      </div>
+      <div class="nourish-card" onclick="goTo('nourish')">
+        <span class="nourish-icon">📖</span>
+        <div class="nourish-tag">Reflection</div>
+        <div class="nourish-title">Sitting with discomfort</div>
+      </div>
+      <div class="nourish-card" onclick="goTo('nourish')">
+        <span class="nourish-icon">🌱</span>
+        <div class="nourish-tag">Habit</div>
+        <div class="nourish-title">Morning sunlight ritual</div>
+      </div>
+      <div class="nourish-card" onclick="goTo('nourish')">
+        <span class="nourish-icon">💧</span>
+        <div class="nourish-tag">Body</div>
+        <div class="nourish-title">Hydration & your nervous system</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="setNav(this,'home')"><span class="nav-icon">🏡</span><span class="nav-label">Home</span></button>
+    <button class="nav-item" onclick="setNav(this,'accountability')"><span class="nav-icon">🌻</span><span class="nav-label">Goals</span></button>
+    <button class="nav-item" onclick="setNav(this,'nourish')"><span class="nav-icon">📖</span><span class="nav-label">Nourish</span></button>
+    <button class="nav-item" onclick="setNav(this,'bodyaware')"><span class="nav-icon">🌿</span><span class="nav-label">Body</span></button>
+  </nav>
+</div>
+
+<!-- ══════════════ TRANSITION MODE ══════════════ -->
+<div class="screen mode-screen" id="transition">
+  <div class="mode-header" id="transition-header">
+    <button class="back-btn" onclick="goTo('home')">←</button>
+    <div class="mode-header-title">Transition Mode</div>
+    <div class="mode-header-sub">You're in a season of change. Let's move through it with grace.</div>
+  </div>
+
+  <div class="mode-body-content">
+
+    <div class="affirmation-box">
+      <div class="affirmation-text">"You don't have to be certain to begin. Roots grow in the dark."</div>
+      <div class="affirmation-author">Today's grounding reminder</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Your transition timeline</div>
+      <div class="timeline-item">
+        <div class="timeline-dot done">✓</div>
+        <div class="timeline-content">
+          <div class="timeline-title">Acknowledge the change</div>
+          <div class="timeline-desc">Name what's shifting in your life</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot done">✓</div>
+        <div class="timeline-content">
+          <div class="timeline-title">Identify your values anchor</div>
+          <div class="timeline-desc">What matters most, regardless of circumstance?</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot">3</div>
+        <div class="timeline-content">
+          <div class="timeline-title">Map your fears & possibilities</div>
+          <div class="timeline-desc">Both deserve space — try the guided journal below</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot" style="background:var(--wheat); color: var(--bark);">4</div>
+        <div class="timeline-content">
+          <div class="timeline-title">Take one small step</div>
+          <div class="timeline-desc">Momentum is built in inches</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Guided reflection</div>
+      <div style="font-family:'Lora',serif; font-style:italic; color:var(--bark); font-size:14px; margin-bottom:12px;">"What am I most afraid of losing in this change — and what might I be gaining?"</div>
+      <textarea class="journal-input" placeholder="Write freely, without judgment..." style="min-height:100px;"></textarea>
+      <button class="save-btn" onclick="saveCheckin()">Save reflection ✓</button>
+      <div style="clear:both"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Soothing practices</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button onclick="showToast('Starting 4-7-8 Breathing 🌬')" style="background:rgba(193,122,90,0.12); border:1px solid var(--terracotta); color:var(--clay); padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🌬 Breathwork</button>
+        <button onclick="showToast('Opening Body Scan 🌿')" style="background:rgba(74,92,58,0.1); border:1px solid var(--sage); color:var(--moss); padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🌿 Body scan</button>
+        <button onclick="showToast('Starting Grounding Meditation 🌱')" style="background:rgba(212,144,58,0.1); border:1px solid var(--amber); color:#8a5a20; padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🪨 Grounding</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" onclick="setNav(this,'home')"><span class="nav-icon">🏡</span><span class="nav-label">Home</span></button>
+    <button class="nav-item" onclick="setNav(this,'accountability')"><span class="nav-icon">🌻</span><span class="nav-label">Goals</span></button>
+    <button class="nav-item" onclick="setNav(this,'nourish')"><span class="nav-icon">📖</span><span class="nav-label">Nourish</span></button>
+    <button class="nav-item active" onclick="setNav(this,'transition')"><span class="nav-icon">🌅</span><span class="nav-label">Transition</span></button>
+  </nav>
+</div>
+
+<!-- ══════════════ BODY AWARENESS MODE ══════════════ -->
+<div class="screen mode-screen" id="bodyaware">
+  <div class="mode-header" id="body-header">
+    <button class="back-btn" onclick="goTo('home')">←</button>
+    <div class="mode-header-title">Body Awareness</div>
+    <div class="mode-header-sub">Listening inward, without judgment.</div>
+  </div>
+
+  <div class="mode-body-content">
+
+    <div class="card">
+      <div class="card-title">How does your body feel today?</div>
+      <div class="body-check-grid">
+        <div class="body-check-item" onclick="toggleBodyCheck(this)">
+          <span class="body-check-emoji">⚡</span>
+          <div class="body-check-label">Energy</div>
+          <div class="body-check-score" id="energy-score">Tap to rate</div>
+        </div>
+        <div class="body-check-item" onclick="toggleBodyCheck(this)">
+          <span class="body-check-emoji">😴</span>
+          <div class="body-check-label">Rest</div>
+          <div class="body-check-score">Tap to rate</div>
+        </div>
+        <div class="body-check-item" onclick="toggleBodyCheck(this)">
+          <span class="body-check-emoji">💪</span>
+          <div class="body-check-label">Strength</div>
+          <div class="body-check-score">Tap to rate</div>
+        </div>
+        <div class="body-check-item" onclick="toggleBodyCheck(this)">
+          <span class="body-check-emoji">🧘</span>
+          <div class="body-check-label">Calm</div>
+          <div class="body-check-score">Tap to rate</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Movement today</div>
+      <div class="slider-wrap">
+        <div class="slider-label"><span>😴 None</span><span>🏃 Active</span></div>
+        <input type="range" min="0" max="100" value="35" oninput="showToast('Movement logged 🌿')" />
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button onclick="showToast('Yoga logged! 🧘')" style="background:rgba(74,92,58,0.1); border:1px solid var(--sage); color:var(--moss); padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🧘 Yoga</button>
+        <button onclick="showToast('Run logged! 🏃')" style="background:rgba(74,92,58,0.1); border:1px solid var(--sage); color:var(--moss); padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🏃 Run</button>
+        <button onclick="showToast('Walk logged! 🚶')" style="background:rgba(74,92,58,0.1); border:1px solid var(--sage); color:var(--moss); padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🚶 Walk</button>
+        <button onclick="showToast('Stretch logged! 🤸')" style="background:rgba(74,92,58,0.1); border:1px solid var(--sage); color:var(--moss); padding:8px 16px; border-radius:50px; font-size:13px; cursor:pointer;">🤸 Stretch</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Body scan</div>
+      <div style="font-family:'Lora',serif; font-style:italic; color:var(--bark); font-size:14px; line-height:1.6; margin-bottom:14px;">
+        Start at the top of your head. Breathe slowly. Notice tension, warmth, or ease — without trying to change anything. You're just listening.
+      </div>
+      <button class="btn-primary" style="width:100%;" onclick="showToast('Body scan starting in 3... 🌿')">Start guided body scan</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Body journal</div>
+      <div style="font-family:'Lora',serif; font-style:italic; color:var(--bark); font-size:14px; margin-bottom:12px;">"Where are you holding tension today?"</div>
+      <textarea class="journal-input" placeholder="Write what you notice..."></textarea>
+      <button class="save-btn" onclick="saveCheckin()">Save ✓</button>
+      <div style="clear:both"></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" onclick="setNav(this,'home')"><span class="nav-icon">🏡</span><span class="nav-label">Home</span></button>
+    <button class="nav-item" onclick="setNav(this,'accountability')"><span class="nav-icon">🌻</span><span class="nav-label">Goals</span></button>
+    <button class="nav-item" onclick="setNav(this,'nourish')"><span class="nav-icon">📖</span><span class="nav-label">Nourish</span></button>
+    <button class="nav-item active" onclick=""><span class="nav-icon">🌿</span><span class="nav-label">Body</span></button>
+  </nav>
+</div>
+
+<!-- ══════════════ GENTLE ACCOUNTABILITY ══════════════ -->
+<div class="screen mode-screen" id="accountability">
+  <div class="mode-header" id="accountability-header">
+    <button class="back-btn" onclick="goTo('home')">←</button>
+    <div class="mode-header-title">Gentle Accountability</div>
+    <div class="mode-header-sub">Progress, not perfection. Every small act counts.</div>
+  </div>
+
+  <div class="mode-body-content">
+
+    <div class="streak-banner">
+      <div>
+        <div class="streak-num">🔥 14</div>
+      </div>
+      <div>
+        <div style="font-weight:500; font-size:15px;">Day streak!</div>
+        <div class="streak-text">You've shown up for yourself 14 days in a row. That's roots deepening.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Today's intentions</div>
+
+      <div class="goal-item" onclick="toggleGoal(this)">
+        <div class="goal-checkbox checked">✓</div>
+        <div class="goal-content">
+          <div class="goal-title">Morning glass of water</div>
+          <div class="goal-streak">🔥 14 day streak</div>
+        </div>
+        <div class="goal-category">Body</div>
+      </div>
+
+      <div class="goal-item" onclick="toggleGoal(this)">
+        <div class="goal-checkbox"></div>
+        <div class="goal-content">
+          <div class="goal-title">10 minutes of movement</div>
+          <div class="goal-streak">🌱 Started 3 days ago</div>
+        </div>
+        <div class="goal-category">Body</div>
+      </div>
+
+      <div class="goal-item" onclick="toggleGoal(this)">
+        <div class="goal-checkbox checked">✓</div>
+        <div class="goal-content">
+          <div class="goal-title">Write 3 things I'm grateful for</div>
+          <div class="goal-streak">🔥 7 day streak</div>
+        </div>
+        <div class="goal-category">Mind</div>
+      </div>
+
+      <div class="goal-item" onclick="toggleGoal(this)">
+        <div class="goal-checkbox"></div>
+        <div class="goal-content">
+          <div class="goal-title">Read for 20 minutes</div>
+          <div class="goal-streak">🌱 New habit</div>
+        </div>
+        <div class="goal-category">Growth</div>
+      </div>
+
+      <div class="goal-item" onclick="toggleGoal(this)">
+        <div class="goal-checkbox"></div>
+        <div class="goal-content">
+          <div class="goal-title">Reach out to one person I care about</div>
+          <div class="goal-streak">🌱 3 day streak</div>
+        </div>
+        <div class="goal-category">Connection</div>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add from goal library</div>
+      <div style="font-family:'Lora',serif; font-style:italic; color:var(--bark); font-size:13px; margin-bottom:14px;">300+ goals across wellness, growth, connection & creativity</div>
+      <button class="btn-primary" style="width:100%;" onclick="showToast('Opening goal library 🌻')">Browse goal library</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">A gentle note</div>
+      <div style="font-family:'Lora',serif; font-style:italic; color:var(--bark); font-size:14px; line-height:1.6;">
+        Missed a day? That's okay. Bloom doesn't punish. Streaks are a celebration, not a weapon. Start again, gently.
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" onclick="setNav(this,'home')"><span class="nav-icon">🏡</span><span class="nav-label">Home</span></button>
+    <button class="nav-item active" onclick=""><span class="nav-icon">🌻</span><span class="nav-label">Goals</span></button>
+    <button class="nav-item" onclick="setNav(this,'nourish')"><span class="nav-icon">📖</span><span class="nav-label">Nourish</span></button>
+    <button class="nav-item" onclick="setNav(this,'bodyaware')"><span class="nav-icon">🌿</span><span class="nav-label">Body</span></button>
+  </nav>
+</div>
+
+<!-- ══════════════ DAILY NOURISHMENT ══════════════ -->
+<div class="screen" id="nourish">
+  <div class="nourish-header">
+    <button class="back-btn" onclick="goTo('home')">←</button>
+    <div class="mode-header-title" style="color:#fff;">Daily Nourishment</div>
+    <div class="mode-header-sub">Small doses of wisdom for your journey</div>
+  </div>
+
+  <div style="padding: 20px 0 0; overflow-y:auto;">
+
+    <div class="nourish-full-card">
+      <div class="nourish-full-top">
+        <span class="nourish-big-icon">🧘‍♀️</span>
+        <div class="nourish-meta">
+          <div class="nourish-meta-tag">Breathwork · Today's pick</div>
+          <div class="nourish-meta-title">4-7-8 Breathing for Calm</div>
+          <div class="nourish-meta-time">⏱ 5 min</div>
+        </div>
+      </div>
+      <div class="nourish-preview">Inhale for 4 counts, hold for 7, exhale for 8. This pattern activates the parasympathetic nervous system — your body's rest-and-digest mode — in under two minutes.</div>
+      <button class="btn-primary" style="margin-top:14px; width:100%;" onclick="showToast('Starting 4-7-8 breathing 🌬')">Start practice</button>
+    </div>
+
+    <div class="nourish-full-card">
+      <div class="nourish-full-top">
+        <span class="nourish-big-icon">📖</span>
+        <div class="nourish-meta">
+          <div class="nourish-meta-tag">Reflection</div>
+          <div class="nourish-meta-title">Sitting with discomfort without fixing it</div>
+          <div class="nourish-meta-time">⏱ 3 min read</div>
+        </div>
+      </div>
+      <div class="nourish-preview">Most of us were never taught to feel without fixing. What if discomfort is information, not a problem? Today, we explore radical acceptance.</div>
+      <button class="btn-primary" style="margin-top:14px; width:100%; background:var(--moss);" onclick="showToast('Opening reflection 📖')">Read more</button>
+    </div>
+
+    <div class="nourish-full-card">
+      <div class="nourish-full-top">
+        <span class="nourish-big-icon">🌱</span>
+        <div class="nourish-meta">
+          <div class="nourish-meta-tag">Habit science</div>
+          <div class="nourish-meta-title">Why morning sunlight changes everything</div>
+          <div class="nourish-meta-time">⏱ 4 min read</div>
+        </div>
+      </div>
+      <div class="nourish-preview">10 minutes of natural light within an hour of waking regulates cortisol, sets your circadian rhythm, and boosts afternoon focus. The simplest habit with the widest reach.</div>
+      <button class="btn-primary" style="margin-top:14px; width:100%; background:var(--amber);" onclick="showToast('Opening article 🌅')">Read more</button>
+    </div>
+
+    <div class="nourish-full-card">
+      <div class="nourish-full-top">
+        <span class="nourish-big-icon">💧</span>
+        <div class="nourish-meta">
+          <div class="nourish-meta-tag">Body</div>
+          <div class="nourish-meta-title">Hydration & your nervous system</div>
+          <div class="nourish-meta-time">⏱ 3 min read</div>
+        </div>
+      </div>
+      <div class="nourish-preview">Even mild dehydration can mimic anxiety. Your brain is 75% water — and your mood, focus, and calm are all downstream of how well you hydrate.</div>
+      <button class="btn-primary" style="margin-top:14px; width:100%; background:var(--bark);" onclick="showToast('Opening article 💧')">Read more</button>
+    </div>
+
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" onclick="setNav(this,'home')"><span class="nav-icon">🏡</span><span class="nav-label">Home</span></button>
+    <button class="nav-item" onclick="setNav(this,'accountability')"><span class="nav-icon">🌻</span><span class="nav-label">Goals</span></button>
+    <button class="nav-item active" onclick=""><span class="nav-icon">📖</span><span class="nav-label">Nourish</span></button>
+    <button class="nav-item" onclick="setNav(this,'bodyaware')"><span class="nav-icon">🌿</span><span class="nav-label">Body</span></button>
+  </nav>
+</div>
+
+<!-- ══════════════ PROFILE ══════════════ -->
+<div class="screen" id="profile">
+  <div class="profile-header">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; position:relative;">
+      <button class="back-btn" onclick="goTo('home')" style="margin-bottom:0;">←</button>
+      <button onclick="showToast('Edit profile coming soon 🌿')" style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:var(--cream); padding:7px 16px; border-radius:50px; font-size:12px; cursor:pointer;">Edit</button>
+    </div>
+    <div class="profile-avatar-wrap">
+      <div class="profile-avatar">🌸</div>
+      <div class="profile-name-wrap">
+        <div class="profile-display-name">Niki</div>
+        <div class="profile-member-since">Member since March 2025 · Day 14</div>
+        <div style="margin-top:6px;"><span class="subscription-badge">🌟 Premium</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-body">
+
+    <!-- Account -->
+    <div class="profile-section">
+      <div class="profile-section-label">Account</div>
+      <div class="profile-card">
+        <div class="profile-row">
+          <div class="profile-row-icon icon-soil">👤</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Full name</div>
+            <div class="profile-row-value">Niki</div>
+          </div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Email settings coming soon')">
+          <div class="profile-row-icon icon-terracotta">✉️</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Email address</div>
+            <div class="profile-row-value"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6907000200290c11080419050c470a0604">[email&#160;protected]</a></div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Password reset email sent 🌿')">
+          <div class="profile-row-icon icon-soil">🔒</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Password</div>
+            <div class="profile-row-value">••••••••••</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plant companion -->
+    <div class="profile-section">
+      <div class="profile-section-label">Your Plant Companion</div>
+      <div class="profile-card">
+        <div class="profile-row">
+          <div class="profile-row-icon icon-sage">🌿</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Plant name</div>
+            <div class="profile-row-value">Sage</div>
+          </div>
+        </div>
+        <div class="profile-row">
+          <div class="profile-row-icon icon-sage">🪴</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Plant type</div>
+            <div class="profile-row-value" style="display:flex; align-items:center; gap:8px;">
+              Pothos
+              <span class="plant-type-pill">🌿 Low maintenance</span>
+            </div>
+            <div class="profile-row-sub">Air-purifying · Resilient · Perfect for beginners</div>
+          </div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Plant customization coming soon 🌱')">
+          <div class="profile-row-icon icon-terracotta">✨</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Growth level</div>
+            <div class="profile-row-value">Level 3 · Flourishing · 68 pts</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Choose a new plant type 🌸')">
+          <div class="profile-row-icon icon-amber">🔄</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Change plant type</div>
+            <div class="profile-row-value">Browse plant library</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscription -->
+    <div class="profile-section">
+      <div class="profile-section-label">Subscription</div>
+      <div class="profile-card">
+        <div class="profile-row">
+          <div class="profile-row-icon icon-amber">🌟</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Current plan</div>
+            <div class="profile-row-value" style="display:flex; align-items:center; gap:8px;">
+              Bloom Premium
+              <span class="subscription-badge">Active</span>
+            </div>
+            <div class="profile-row-sub">$6.99 / month · Renews April 15, 2026</div>
+          </div>
+        </div>
+        <div class="profile-row">
+          <div class="profile-row-icon icon-terracotta">✅</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Includes</div>
+            <div class="profile-row-value" style="font-size:13px; white-space:normal; line-height:1.5;">All 3 modes · Goal library · Daily Nourishment · Unlimited journaling</div>
+          </div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Managing billing...')">
+          <div class="profile-row-icon icon-soil">💳</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Billing</div>
+            <div class="profile-row-value">Manage payment method</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Cancel flow coming soon')">
+          <div class="profile-row-icon" style="background:rgba(160,97,74,0.1);">⚠️</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Plan</div>
+            <div class="profile-row-value" style="color:var(--clay);">Cancel subscription</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="profile-section">
+      <div class="profile-section-label">Notifications</div>
+      <div class="profile-card">
+        <div class="profile-row">
+          <div class="profile-row-icon icon-amber">🔔</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Daily check-in reminder</div>
+            <div class="profile-row-value" style="font-size:13px;">8:00 AM every day</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked onchange="showToast(this.checked ? 'Reminders on 🔔' : 'Reminders off')"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="profile-row">
+          <div class="profile-row-icon icon-sage">🌿</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Plant care nudges</div>
+            <div class="profile-row-value" style="font-size:13px;">When Sage needs attention</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked onchange="showToast(this.checked ? 'Plant nudges on 🌿' : 'Plant nudges off')"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="profile-row">
+          <div class="profile-row-icon icon-terracotta">🌻</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Goal streak reminders</div>
+            <div class="profile-row-value" style="font-size:13px;">Keep your streak alive</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked onchange="showToast(this.checked ? 'Streak alerts on 🌻' : 'Streak alerts off')"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="profile-row">
+          <div class="profile-row-icon icon-soil">📖</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Daily Nourishment drop</div>
+            <div class="profile-row-value" style="font-size:13px;">New content each morning</div>
+          </div>
+          <label class="toggle"><input type="checkbox" onchange="showToast(this.checked ? 'Nourishment alerts on 📖' : 'Nourishment alerts off')"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Notification time picker coming soon')">
+          <div class="profile-row-icon icon-amber">⏰</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Reminder time</div>
+            <div class="profile-row-value">8:00 AM</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- App support -->
+    <div class="profile-section">
+      <div class="profile-section-label">App & Support</div>
+      <div class="profile-card">
+        <div class="profile-row tappable" onclick="showToast('Opening Help Center 🌿')">
+          <div class="profile-row-icon icon-sage">❓</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Support</div>
+            <div class="profile-row-value">Help Center & FAQs</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Opening feedback form 💌')">
+          <div class="profile-row-icon icon-terracotta">💌</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Feedback</div>
+            <div class="profile-row-value">Share your thoughts with us</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+        <div class="profile-row tappable" onclick="showToast('Opening Privacy Policy')">
+          <div class="profile-row-icon icon-soil">🔐</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">Legal</div>
+            <div class="profile-row-value">Privacy Policy · Terms of Use</div>
+          </div>
+          <div class="profile-row-action">›</div>
+        </div>
+        <div class="profile-row">
+          <div class="profile-row-icon icon-amber">📱</div>
+          <div class="profile-row-content">
+            <div class="profile-row-label">App version</div>
+            <div class="profile-row-value">Bloom 2.0 · Build 204</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="sign-out-btn" onclick="showToast('Signing out... 🌿')">Sign out</button>
+
+    <div style="text-align:center; padding: 20px 0 8px; font-family:'Lora',serif; font-style:italic; color:var(--wheat); font-size:12px;">
+      made with care, for you 🌱
+    </div>
+
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" onclick="setNav(this,'home')"><span class="nav-icon">🏡</span><span class="nav-label">Home</span></button>
+    <button class="nav-item" onclick="setNav(this,'accountability')"><span class="nav-icon">🌻</span><span class="nav-label">Goals</span></button>
+    <button class="nav-item" onclick="setNav(this,'nourish')"><span class="nav-icon">📖</span><span class="nav-label">Nourish</span></button>
+    <button class="nav-item" onclick="setNav(this,'bodyaware')"><span class="nav-icon">🌿</span><span class="nav-label">Body</span></button>
+  </nav>
+</div>
+
+
+  // ── State ──
+  let growthPoints = 68;
+  let moodSelected = false;
+  let journalFilled = false;
+
+  const moodMessages = {
+    '😔': { title: 'Sage holds space for you 🌿', sub: 'Even on low days, you showed up.\nThat matters more than you know.' },
+    '😐': { title: 'Sage drinks your honesty 💧', sub: 'Acknowledging "okay" takes courage.\nYou\'re here — that\'s everything.' },
+    '🙂': { title: 'Sage is smiling with you 🌱', sub: 'A good day, noticed and honored.\nKeep tending to this feeling.' },
+    '😊': { title: 'Sage is blooming! 🌸', sub: 'Your joy nourishes both of you.\nThis is what flourishing looks like.' },
+    '🌟': { title: 'Sage is radiant! ✨', sub: 'Pure glow, fully received.\nYou\'re thriving — and so is Sage.' },
+  };
+
+  const plantStages = ['🌱', '🌿', '🌿', '🍀', '🌸', '🌺'];
+
+  function getPlantEmoji(pts) {
+    if (pts < 20) return plantStages[0];
+    if (pts < 40) return plantStages[1];
+    if (pts < 60) return plantStages[2];
+    if (pts < 80) return plantStages[3];
+    if (pts < 95) return plantStages[4];
+    return plantStages[5];
+  }
+
+  // ── Nav ──
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function setNav(btn, screen) { goTo(screen); }
+
+  // ── Toast ──
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ── Mood selection ──
+  function selectMood(btn) {
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    moodSelected = true;
+    // Subtle pulse on plant card
+    document.querySelector('.plant-card').style.transition = 'transform 0.15s';
+    document.querySelector('.plant-card').style.transform = 'scale(1.02)';
+    setTimeout(() => document.querySelector('.plant-card').style.transform = '', 300);
+  }
+
+  // ── Save check-in → triggers celebration ──
+  function saveCheckin() {
+    const mood = document.querySelector('.mood-btn.selected');
+    if (!mood) { showToast('Pick a mood first 🌿'); return; }
+
+    const emoji = mood.textContent.trim().split('\n')[0];
+    const msg = moodMessages[emoji] || { title: 'Sage is watered! 💧', sub: 'You showed up for yourself.\nYour plant felt it.' };
+
+    // Update growth
+    const gain = 5;
+    growthPoints = Math.min(growthPoints + gain, 100);
+
+    // Update plant card UI
+    updatePlantCard(growthPoints, gain);
+
+    // Mark checkin logged
+    document.querySelector('.checkin-card').classList.add('logged');
+
+    // Launch celebration
+    launchCelebration(emoji, msg, growthPoints, gain);
+  }
+
+  function updatePlantCard(pts, gain) {
+    const bar = document.querySelector('.growth-bar');
+    const label = document.querySelector('.growth-label');
+    const plantEmoji = document.querySelector('.plant-emoji');
+    const plantLevel = document.querySelector('.plant-level');
+
+    if (bar) bar.style.width = pts + '%';
+    if (label) label.textContent = pts + ' / 100 growth points';
+    if (plantEmoji) plantEmoji.textContent = getPlantEmoji(pts);
+    if (plantLevel) {
+      if (pts >= 80) plantLevel.textContent = 'Level 4 · Radiant';
+      else if (pts >= 60) plantLevel.textContent = 'Level 3 · Flourishing';
+      else if (pts >= 40) plantLevel.textContent = 'Level 2 · Growing';
+      else plantLevel.textContent = 'Level 1 · Sprouting';
+    }
+
+    // Ripple effect on plant card
+    const card = document.querySelector('.plant-card');
+    card.classList.remove('watered');
+    void card.offsetWidth;
+    card.classList.add('watered');
+    setTimeout(() => card.classList.remove('watered'), 3200);
+  }
+
+  // ── Celebration overlay ──
+  function launchCelebration(moodEmoji, msg, pts, gain) {
+    // Set content
+    document.getElementById('celeb-plant').textContent = getPlantEmoji(pts);
+    document.getElementById('celeb-title').textContent = msg.title;
+    document.getElementById('celeb-sub').innerHTML = msg.sub.replace('\n', '<br>');
+    document.getElementById('celeb-pts').textContent = '+' + gain + ' growth points · ' + pts + ' / 100';
+
+    // Reset & animate bar
+    const bar = document.getElementById('celeb-bar');
+    bar.style.width = '0%';
+    setTimeout(() => { bar.style.width = pts + '%'; }, 100);
+
+    // Water drops
+    spawnWaterDrops();
+
+    // Show overlay
+    const overlay = document.getElementById('celebration-overlay');
+    overlay.classList.add('active');
+
+    // Confetti burst
+    setTimeout(spawnConfetti, 200);
+  }
+
+  function closeCelebration() {
+    const overlay = document.getElementById('celebration-overlay');
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.3s';
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      overlay.style.opacity = '';
+      overlay.style.transition = '';
+      // Clear drops
+      document.getElementById('water-drops').innerHTML = '';
+    }, 300);
+  }
+
+  function spawnWaterDrops() {
+    const wrap = document.getElementById('water-drops');
+    wrap.innerHTML = '';
+    const drops = ['💧','💧','💧','🫧','💦','💧'];
+    const positions = [15, 30, 45, 60, 75, 88];
+    drops.forEach((d, i) => {
+      const el = document.createElement('span');
+      el.className = 'water-drop';
+      el.textContent = d;
+      el.style.left = positions[i] + '%';
+      el.style.animationDelay = (i * 0.18) + 's';
+      el.style.animationDuration = (1.1 + Math.random() * 0.4) + 's';
+      el.style.animationIterationCount = '4';
+      wrap.appendChild(el);
+    });
+  }
+
+  function spawnConfetti() {
+    const colors = ['#c17a5a','#7a9168','#d4903a','#a8bc94','#f0c060','#a0614a','#4a5c3a'];
+    const shapes = ['2px', '50%', '0'];
+    for (let i = 0; i < 55; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-particle';
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const shape = shapes[Math.floor(Math.random() * shapes.length)];
+      const size = 6 + Math.random() * 8;
+      el.style.cssText = `
+        left: ${10 + Math.random() * 80}%;
+        top: ${10 + Math.random() * 30}%;
+        background: ${color};
+        border-radius: ${shape};
+        width: ${size}px;
+        height: ${size}px;
+        animation-duration: ${1.4 + Math.random() * 1.2}s;
+        animation-delay: ${Math.random() * 0.5}s;
+      `;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+  }
+
+  // ── Goals ──
+  function toggleGoal(item) {
+    const box = item.querySelector('.goal-checkbox');
+    const isChecked = box.classList.toggle('checked');
+    box.textContent = isChecked ? '✓' : '';
+    if (isChecked) {
+      growthPoints = Math.min(growthPoints + 3, 100);
+      updatePlantCard(growthPoints, 3);
+      showToast('Goal complete! Sage grew 🌻');
+    } else {
+      showToast('Goal unchecked');
+    }
+  }
+
+  // ── Body checks ──
+  const bodyScores = ['Low', 'Okay', 'Good', 'Great', 'Amazing'];
+  function toggleBodyCheck(el) {
+    el.classList.toggle('active');
+    const score = el.querySelector('.body-check-score');
+    if (el.classList.contains('active')) {
+      score.textContent = bodyScores[Math.floor(Math.random() * bodyScores.length)];
+  
